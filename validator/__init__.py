@@ -1,3 +1,3 @@
-from .main import RegexMatch
+from .main import RestrictToTopic
 
-__all__ = ["RegexMatch"]
+__all__ = ["RestrictToTopic"]

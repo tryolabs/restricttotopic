@@ -1,15 +1,18 @@
 [project]
-name = "regexmatch"
+name = "restricttotopic"
 version = "0.0.0"
-description = "Template repo for Guardrails Hub validators."
+description = "Checks if a text is related with a topic."
 authors = [
-    {name = "Guardrails AI", email = "contact@guardrailsai.com"}
+    {name = "Maria Paz Cuturi", email = "paz@tryolabs.com"}
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">= 3.8"
 dependencies = [
-    "rstr",
     "guardrails-ai>=0.3.2",
-    "pydantic>=2.4.2"
+    "pydantic>=2.4.2",
+    "tenacity>=8.1.0",
+    "transformers>=4.11.3",
+    "torch>=2.1.1",
+    "python-dotenv"
 ]
