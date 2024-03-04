@@ -20,7 +20,7 @@ except ImportError:
     pipeline = None
 
 
-@register_validator(name="restrict_to_topic", data_type="string")
+@register_validator(name="tryolabs/restricttotopic", data_type="string")
 class RestrictToTopic(Validator):
     """Checks if text's main topic is specified within a list of valid topics
     and ensures that the text is not about any of the invalid topics.
@@ -227,7 +227,7 @@ class RestrictToTopic(Validator):
         return topic, score
 
     def validate(
-        self, value: str, metadata: Optional[Dict[str, Any]]
+        self, value: str, metadata: Optional[Dict[str, Any]] = {}
     ) -> ValidationResult:
         valid_topics = set(self._valid_topics)
         invalid_topics = set(self._invalid_topics)
