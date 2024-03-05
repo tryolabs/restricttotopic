@@ -1,25 +1,25 @@
 import os
+
 from dotenv import load_dotenv
-
-load_dotenv()
-
 from guardrails import Guard
 from pydantic import BaseModel, Field
 from validator import RestrictToTopic
 
+load_dotenv()
+
 
 class ValidatorTestObject(BaseModel):
     test_val: str = Field(
-      validators=[
-        RestrictToTopic(
-          valid_topics=["sports"],
-          invalid_topics=["music"],
-          disable_classifier=True,
-          disable_llm=False,
-          on_fail="exception"
-        )
-      ],
-      api_key=os.getenv("OPENAI_API_KEY")
+        validators=[
+            RestrictToTopic(
+                valid_topics=["sports"],
+                invalid_topics=["music"],
+                disable_classifier=True,
+                disable_llm=False,
+                on_fail="exception",
+            )
+        ],
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
 
 
@@ -33,10 +33,10 @@ TEST_OUTPUT = """
 guard = Guard.from_pydantic(output_class=ValidatorTestObject)
 
 try:
-  guard.parse(TEST_OUTPUT)
-  print ("Successfully passed validation when it was supposed to.")
-except (Exception):
-  print ("Failed to pass validation when it was supposed to.")
+    guard.parse(TEST_OUTPUT)
+    print("Successfully passed validation when it was supposed to.")
+except Exception:
+    print("Failed to pass validation when it was supposed to.")
 
 
 TEST_FAIL_OUTPUT = """
@@ -46,7 +46,7 @@ TEST_FAIL_OUTPUT = """
 """
 
 try:
-  guard.parse(TEST_FAIL_OUTPUT)
-  print ("Failed to fail validation when it was supposed to")
-except (Exception):
-  print ("Successfully failed validation when it was supposed to.")
+    guard.parse(TEST_FAIL_OUTPUT)
+    print("Failed to fail validation when it was supposed to")
+except Exception:
+    print("Successfully failed validation when it was supposed to.")

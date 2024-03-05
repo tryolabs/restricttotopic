@@ -2,8 +2,6 @@ import contextvars
 import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from tenacity import retry, stop_after_attempt, wait_random_exponential
-
 from guardrails.utils.casting_utils import to_int
 from guardrails.utils.openai_utils import OpenAIClient
 from guardrails.validator_base import (
@@ -13,11 +11,8 @@ from guardrails.validator_base import (
     Validator,
     register_validator,
 )
-
-try:
-    from transformers import pipeline
-except ImportError:
-    pipeline = None
+from tenacity import retry, stop_after_attempt, wait_random_exponential
+from transformers import pipeline
 
 
 @register_validator(name="tryolabs/restricttotopic", data_type="string")
@@ -41,7 +36,7 @@ class RestrictToTopic(Validator):
 
     | Property                      | Description                              |
     | ----------------------------- | ---------------------------------------- |
-    | Name for `format` attribute   | `restrict_to_topic`                               |
+    | Name for `format` attribute   | `tryolabs/restricttotopic`               |
     | Supported data types          | `string`                                 |
     | Programmatic fix              | Removes lines with off-topic information |
 
@@ -96,13 +91,6 @@ class RestrictToTopic(Validator):
             model_threshold=model_threshold,
         )
         self._valid_topics = valid_topics
-
-        if pipeline is None:
-            raise ValueError(
-                "You must install transformers in order to "
-                "use the RestrictToTopic validator."
-                "Install it using `pip install transformers`."
-            )
 
         if invalid_topics is None:
             self._invalid_topics = []
@@ -161,6 +149,7 @@ class RestrictToTopic(Validator):
             response (str): String representing the LLM response.
         """
         from dotenv import load_dotenv
+
         load_dotenv()
         return self._llm_callable(text, topics)
 
