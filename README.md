@@ -1,15 +1,14 @@
-# Overview
+## Overview
 
 | Developed by | Tryolabs |
+| --- | --- |
 | Date of development | Feb 15, 2024 |
 | Validator type | Format |
-| Blog |  |
+| Blog | - |
 | License | Apache 2 |
 | Input/Output | Output |
 
-# Description
-
-## Intended Use
+## Description
 This validator checks if a text is related with a topic.
 
 ## Requirements
@@ -26,7 +25,7 @@ This validator checks if a text is related with a topic.
 # Installation
 
 ```bash
-$ guardrails hub install hub://tryolabs/restricttotopic
+guardrails hub install hub://tryolabs/restricttotopic
 ```
 
 # Usage Examples
