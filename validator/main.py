@@ -1,4 +1,4 @@
-import contextvars
+import os
 import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -11,6 +11,7 @@ from guardrails.validator_base import (
     Validator,
     register_validator,
 )
+from guardrails.stores.context import get_call_kwarg
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from transformers import pipeline
 
@@ -125,15 +126,8 @@ class RestrictToTopic(Validator):
         return self.verify_topic(topic)
 
     def get_client_args(self) -> Tuple[Optional[str], Optional[str]]:
-        kwargs = {}
-        context_copy = contextvars.copy_context()
-        for key, context_var in context_copy.items():
-            if key.name == "kwargs" and isinstance(kwargs, dict):
-                kwargs = context_var
-                break
-
-        api_key = kwargs.get("api_key")
-        api_base = kwargs.get("api_base")
+        api_key = get_call_kwarg("api_key") or os.environ.get("OPENAI_API_KEY")
+        api_base = get_call_kwarg("api_base") or os.environ.get("OPENAI_API_BASE")
 
         return (api_key, api_base)
 
