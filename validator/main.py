@@ -97,7 +97,7 @@ class RestrictToTopic(Validator):
         else:
             self._invalid_topics = invalid_topics
 
-        self._device = device if device in ["cpu", "mps"] else to_int(device)
+        self._device = device if device == "mps" else to_int(device)
         self._model = model
         self._disable_classifier = disable_classifier
         self._disable_llm = disable_llm
@@ -128,8 +128,7 @@ class RestrictToTopic(Validator):
                 return FailResult(
                     error_message=f"Invalid topic {topic} was found to be relevant."
                 )
-        if not succesfully_on_topic:
-            return FailResult(error_message="No valid topic was found.")
+
         return self.get_topic_llm(text, candidate_topics)
 
     def get_topic_llm(self, text: str, candidate_topics: List[str]) -> ValidationResult:
@@ -150,7 +149,11 @@ class RestrictToTopic(Validator):
 
         return (api_key, api_base)
 
-    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(5))
+    @retry(
+        wait=wait_random_exponential(min=1, max=60),
+        stop=stop_after_attempt(5),
+        reraise=True,
+    )
     def call_llm(self, text: str, topics: List[str]) -> str:
         """Call the LLM with the given prompt.
 
@@ -161,9 +164,6 @@ class RestrictToTopic(Validator):
         Returns:
             response (str): String representing the LLM response.
         """
-        from dotenv import load_dotenv
-
-        load_dotenv()
         return self._llm_callable(text, topics)
 
     def verify_topic(self, topic: str) -> ValidationResult:
@@ -217,7 +217,6 @@ class RestrictToTopic(Validator):
     def get_topic_zero_shot(
         self, text: str, candidate_topics: List[str]
     ) -> Tuple[str, float]:
-
         result = self.classifier(text, candidate_topics)
         topics = result["labels"]
         scores = result["scores"]
