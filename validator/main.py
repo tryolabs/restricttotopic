@@ -108,6 +108,13 @@ class RestrictToTopic(Validator):
             self._model_threshold = model_threshold
 
         self.set_callable(llm_callable)
+        self.classifier = pipeline(
+            "zero-shot-classification",
+            model=self._model,
+            device=self._device,
+            hypothesis_template="This example has to do with topic {}.",
+            multi_label=True,
+        )
 
     def get_topic_ensemble(
         self, text: str, candidate_topics: List[str]
@@ -210,14 +217,8 @@ class RestrictToTopic(Validator):
     def get_topic_zero_shot(
         self, text: str, candidate_topics: List[str]
     ) -> Tuple[str, float]:
-        classifier = pipeline(
-            "zero-shot-classification",
-            model=self._model,
-            device=self._device,
-            hypothesis_template="This example has to do with topic {}.",
-            multi_label=True,
-        )
-        result = classifier(text, candidate_topics)
+
+        result = self.classifier(text, candidate_topics)
         topics = result["labels"]
         scores = result["scores"]
         return topics, scores
