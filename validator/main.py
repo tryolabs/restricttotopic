@@ -97,7 +97,7 @@ class RestrictToTopic(Validator):
         else:
             self._invalid_topics = invalid_topics
 
-        self._device = device if device in ["cpu", "mps"] else to_int(device)
+        self._device = device if device == "mps" else to_int(device)
         self._model = model
         self._disable_classifier = disable_classifier
         self._disable_llm = disable_llm
@@ -118,7 +118,7 @@ class RestrictToTopic(Validator):
             if score > self._model_threshold and topic in self._valid_topics:
                 succesfully_on_topic.append(topic)
             if score > self._model_threshold and topic in self._invalid_topics:
-                return FailResult(error_message=f"Invalid {topic} was found to be relevant.")
+                return FailResult(error_message=f"Invalid topic {topic} was found to be relevant.")
         if not succesfully_on_topic:
             return FailResult(error_message="No valid topic was found.")
         return self.get_topic_llm(text, candidate_topics)
@@ -211,7 +211,7 @@ class RestrictToTopic(Validator):
         classifier = pipeline(
             "zero-shot-classification",
             model=self._model,
-            device=self._device,
+            device="mps",
             hypothesis_template="This example has to do with topic {}.",
             multi_label=True
         )
