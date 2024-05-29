@@ -97,7 +97,7 @@ class RestrictToTopic(Validator):
         else:
             self._invalid_topics = invalid_topics
 
-        self._device = device if device == "mps" else to_int(device)
+        self._device = device if device in ["cpu", "mps"] else to_int(device)
         self._model = model
         self._disable_classifier = disable_classifier
         self._disable_llm = disable_llm
@@ -211,7 +211,7 @@ class RestrictToTopic(Validator):
         classifier = pipeline(
             "zero-shot-classification",
             model=self._model,
-            device="mps",
+            device=self._device,
             hypothesis_template="This example has to do with topic {}.",
             multi_label=True
         )
