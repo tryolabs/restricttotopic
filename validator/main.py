@@ -97,7 +97,7 @@ class RestrictToTopic(Validator):
         else:
             self._invalid_topics = invalid_topics
 
-        self._device = to_int(device)
+        self._device = device if device == "mps" else to_int(device)
         self._model = model
         self._disable_classifier = disable_classifier
         self._disable_llm = disable_llm
@@ -112,12 +112,16 @@ class RestrictToTopic(Validator):
     def get_topic_ensemble(
         self, text: str, candidate_topics: List[str]
     ) -> ValidationResult:
-        topic, confidence = self.get_topic_zero_shot(text, candidate_topics)
-
-        if confidence > self._model_threshold:
-            return self.verify_topic(topic)
-        else:
-            return self.get_topic_llm(text, candidate_topics)
+        topics, scores = self.get_topic_zero_shot(text, candidate_topics)
+        succesfully_on_topic = []
+        for score, topic in zip(scores, topics):
+            if score > self._model_threshold and topic in self._valid_topics:
+                succesfully_on_topic.append(topic)
+            if score > self._model_threshold and topic in self._invalid_topics:
+                return FailResult(error_message=f"Invalid {topic} was found to be relevant.")
+        if not succesfully_on_topic:
+            return FailResult(error_message="No valid topic was found.")
+        return self.get_topic_llm(text, candidate_topics)
 
     def get_topic_llm(self, text: str, candidate_topics: List[str]) -> ValidationResult:
         response = self.call_llm(text, candidate_topics)
@@ -207,13 +211,14 @@ class RestrictToTopic(Validator):
         classifier = pipeline(
             "zero-shot-classification",
             model=self._model,
-            device=self._device,
+            device="mps",
             hypothesis_template="This example has to do with topic {}.",
+            multi_label=True
         )
         result = classifier(text, candidate_topics)
-        topic = result["labels"][0]
-        score = result["scores"][0]
-        return topic, score
+        topics = result["labels"]
+        scores = result["scores"]
+        return topics, scores
 
     def validate(
         self, value: str, metadata: Optional[Dict[str, Any]] = {}
@@ -231,12 +236,6 @@ class RestrictToTopic(Validator):
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
 
-        # Add 'other' to the invalid topics list
-        if "other" not in invalid_topics:
-            invalid_topics.add("other")
-
-        # Combine valid and invalid topics
-        candidate_topics = valid_topics.union(invalid_topics)
 
         # Check which model(s) to use
         if self._disable_classifier and self._disable_llm:  # Error, no model set
@@ -244,14 +243,18 @@ class RestrictToTopic(Validator):
         elif (
             not self._disable_classifier and not self._disable_llm
         ):  # Use ensemble (Zero-Shot + Ensemble)
-            return self.get_topic_ensemble(value, list(candidate_topics))
+            return self.get_topic_ensemble(value, list(invalid_topics))
         elif self._disable_classifier and not self._disable_llm:  # Use only LLM
-            return self.get_topic_llm(value, list(candidate_topics))
+            return self.get_topic_llm(value, list(invalid_topics))
 
         # Use only Zero-Shot
-        topic, _score = self.get_topic_zero_shot(value, list(candidate_topics))
-
-        if _score > self._model_threshold:
-            return self.verify_topic(topic)
-        else:
-            return self.verify_topic("other")
+        topics, scores = self.get_topic_zero_shot(value, list(invalid_topics) + list(valid_topics))
+        succesfully_on_topic = []
+        for score, topic in zip(scores, topics):
+            if score > self._model_threshold and topic in self._valid_topics:
+                succesfully_on_topic.append(topic)
+            if score > self._model_threshold and topic in self._invalid_topics:
+                return FailResult(error_message=f"Invalid {topic} was found to be relevant.")
+        if not succesfully_on_topic:
+            return FailResult(error_message="No valid topic was found.")
+        return PassResult()
