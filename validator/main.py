@@ -16,7 +16,7 @@ from transformers import pipeline
 
 
 @register_validator(name="tryolabs/restricttotopic", data_type="string")
-class RestrictToTopic(Validator):  # type: ignore
+class RestrictToTopic(Validator):
     """Checks if text's main topic is specified within a list of valid topics
     and ensures that the text is not about any of the invalid topics.
 
@@ -234,7 +234,10 @@ class RestrictToTopic(Validator):  # type: ignore
             raise ValueError(
                 "`valid_topics` must be set and contain at least one topic."
             )
-
+        if not invalid_topics:
+            raise ValueError(
+                "`invalid topics` must be set and contain at least one topic."
+            )
         # throw if valid and invalid topics are not disjoint
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
