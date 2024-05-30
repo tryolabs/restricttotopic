@@ -75,9 +75,11 @@ class RestrictToTopic(Validator):
         model: Optional[str] = "facebook/bart-large-mnli",
         llm_callable: Union[str, Callable, None] = None,
         disable_classifier: Optional[bool] = False,
+        classifier_api_endpoint: Optional[str] = None,
         disable_llm: Optional[bool] = False,
         on_fail: Optional[Callable[..., Any]] = None,
-        model_threshold: Optional[float] = 0.5,
+        zero_shot_threshold: Optional[float] = 0.5,
+        llm_theshold: Optional[int] = 3,
     ):
         super().__init__(
             valid_topics=valid_topics,
@@ -85,10 +87,12 @@ class RestrictToTopic(Validator):
             device=device,
             model=model,
             disable_classifier=disable_classifier,
+            classifier_api_endpoint=classifier_api_endpoint,
             disable_llm=disable_llm,
             llm_callable=llm_callable,
             on_fail=on_fail,
-            model_threshold=model_threshold,
+            zero_shot_threshold=zero_shot_threshold,
+            llm_theshold=llm_theshold,
         )
         self._valid_topics = valid_topics
 
@@ -101,40 +105,68 @@ class RestrictToTopic(Validator):
         self._model = model
         self._disable_classifier = disable_classifier
         self._disable_llm = disable_llm
+        self._classifier_api_endpoint = classifier_api_endpoint
 
-        if not model_threshold:
-            model_threshold = 0.5
-        else:
-            self._model_threshold = model_threshold
+        self._zero_shot_threshold = zero_shot_threshold
+        if self._zero_shot_threshold < 0 or self._zero_shot_threshold > 1:
+            raise ValueError("zero_shot_threshold must be a number between 0 and 1")
 
+        self._llm_threshold = llm_theshold
+        if self._llm_threshold < 0 or self._llm_threshold > 5:
+            raise ValueError("llm_threshold must be a number between 0 and 5")
         self.set_callable(llm_callable)
-        self.classifier = pipeline(
-            "zero-shot-classification",
-            model=self._model,
-            device=self._device,
-            hypothesis_template="This example has to do with topic {}.",
-            multi_label=True,
+
+        if self._classifier_api_endpoint is None:
+            self._classifier = pipeline(
+                "zero-shot-classification",
+                model=self._model,
+                device=self._device,
+                hypothesis_template="This example has to do with topic {}.",
+                multi_label=True,
+            )
+        else:
+            # TODO api endpoint
+            ...
+
+        self._json_schema = self._create_json_schema(
+            self._valid_topics, self._invalid_topics
         )
 
-    def get_topic_ensemble(
-        self, text: str, candidate_topics: List[str]
-    ) -> ValidationResult:
-        topics, scores = self.get_topic_zero_shot(text, candidate_topics)
-        failed = []
-        for score, topic in zip(scores, topics):
-            if score > self._model_threshold and topic in self._invalid_topics:
-                failed.append(topic)
-
-        if failed:
-            return FailResult(
-                error_message=f"The following invalid topics were found to be relevant: {failed}",
+    def _create_json_schema(self, valid_topics: list, invalid_topics: list):
+        json_schema = []
+        for topic in set(valid_topics + invalid_topics):
+            json_schema.append(
+                {topic: {"present": "[bool]", "confidence": "[int, 1, 5]"}}
             )
-        return self.get_topic_llm(text, candidate_topics)
+        return str(json_schema)
+
+    def get_topic_ensemble(self, text: str, candidate_topics: List[str]) -> list[str]:
+        """Finds the topics in the input text based on if it is determined by the zero
+        shot model or the llm.
+
+        Args:
+            text (str): The input text to find categories from
+            candidate_topics (List[str]): The topics to search for in the input text
+
+        Returns:
+            list[str]: The found topics
+        """
+        # Find topics based on zero shot model
+        zero_shot_topics = self.get_topic_zero_shot(text, candidate_topics)
+
+        # Find topics based on llm
+        llm_topics = self.get_topic_llm(text, candidate_topics)
+
+        return list(set(zero_shot_topics + llm_topics))
 
     def get_topic_llm(self, text: str, candidate_topics: List[str]) -> ValidationResult:
         response = self.call_llm(text, candidate_topics)
-        topic = json.loads(response)["topic"]
-        return self.verify_topic(topic)
+        topics = json.loads(response)
+        found_topics = []
+        for topic, data in topics.items():
+            if data["present"] and data["confidence"] > self._llm_threshold:
+                found_topics.append(topic)
+        return found_topics
 
     def get_client_args(self) -> Tuple[Optional[str], Optional[str]]:
         kwargs = {}
@@ -149,11 +181,11 @@ class RestrictToTopic(Validator):
 
         return (api_key, api_base)
 
-    @retry(
-        wait=wait_random_exponential(min=1, max=60),
-        stop=stop_after_attempt(5),
-        reraise=True,
-    )
+    # @retry(
+    #     wait=wait_random_exponential(min=1, max=60),
+    #     stop=stop_after_attempt(5),
+    #     reraise=True,
+    # )
     def call_llm(self, text: str, topics: List[str]) -> str:
         """Call the LLM with the given prompt.
 
@@ -164,13 +196,7 @@ class RestrictToTopic(Validator):
         Returns:
             response (str): String representing the LLM response.
         """
-        return self._llm_callable(text, topics)
-
-    def verify_topic(self, topic: str) -> ValidationResult:
-        if topic in self._valid_topics:
-            return PassResult()
-        else:
-            return FailResult(error_message=f"Most relevant topic is {topic}.")
+        return self._llm_callable(text)
 
     def set_callable(self, llm_callable: Union[str, Callable, None]) -> None:
         """Set the LLM callable.
@@ -191,7 +217,7 @@ class RestrictToTopic(Validator):
                     "Check out ProvenanceV1 documentation for an example."
                 )
 
-            def openai_callable(text: str, topics: List[str]) -> str:
+            def openai_callable(text: str) -> str:
                 api_key, api_base = self.get_client_args()
                 response = OpenAIClient(api_key, api_base).create_chat_completion(
                     model=llm_callable,
@@ -199,14 +225,23 @@ class RestrictToTopic(Validator):
                     messages=[
                         {
                             "role": "user",
-                            "content": f"""Classify the following text {text}
-                                into one of these topics: {topics}.
-                                Format the response as JSON with the following schema:
-                                {{"topic": "topic_name"}}""",
+                            "content": f"""Given a text, fill out the provided json schema with a confidence that the topic is relevant to the text.
+                            
+                            Text
+                            ----
+                            {text}
+
+                            Schema
+                            ------
+                            {self._json_schema}
+
+                            Complete Schema
+                            ---------------
+
+                            """,
                         },
                     ],
                 )
-
                 return response.output
 
             self._llm_callable = openai_callable
@@ -215,19 +250,46 @@ class RestrictToTopic(Validator):
         else:
             raise ValueError("llm_callable must be a string or a Callable")
 
-    def get_topic_zero_shot(
-        self, text: str, candidate_topics: List[str]
-    ) -> Tuple[str, float]:
-        result = self.classifier(text, candidate_topics)
+    def get_topic_zero_shot(self, text: str, candidate_topics: List[str]) -> list[str]:
+        """Gets the topics found through the zero shot classifier
+
+        Args:
+            text (str): The text to classify
+            candidate_topics (List[str]): The potential topics to look for
+
+        Returns:
+            list[str]: The resulting topics found that meet the given threshold
+        """
+        result = self._classifier(text, candidate_topics)
         topics = result["labels"]
         scores = result["scores"]
-        return topics, scores
+        found_topics = []
+        for topic, score in zip(topics, scores):
+            if score > self._zero_shot_threshold:
+                found_topics.append(topic)
+        return found_topics
 
     def validate(
         self, value: str, metadata: Optional[Dict[str, Any]] = {}
     ) -> ValidationResult:
+        """Validates that a string contains at least one valid topic and no invalid topics.
+
+        Args:
+            value (str): The given string to classify
+            metadata (Optional[Dict[str, Any]], optional): _description_. Defaults to {}.
+
+        Raises:
+            ValueError: If a topic is invalid and valid
+            ValueError: If no valid topics are set
+            ValueError: If there is no llm or zero shot classifier set
+
+        Returns:
+            ValidationResult: PassResult if a topic is restricted and valid,
+            FailResult otherwise
+        """
         valid_topics = set(self._valid_topics)
         invalid_topics = set(self._invalid_topics)
+        all_topics = list(set(valid_topics) | set(invalid_topics))
 
         # throw if valid and invalid topics are empty
         if not valid_topics:
@@ -242,27 +304,34 @@ class RestrictToTopic(Validator):
         # Check which model(s) to use
         if self._disable_classifier and self._disable_llm:  # Error, no model set
             raise ValueError("Either classifier or llm must be enabled.")
-        elif (
-            not self._disable_classifier and not self._disable_llm
-        ):  
-            if invalid_topics:# Use ensemble (Zero-Shot + Ensemble)
-                return self.get_topic_ensemble(value, list(invalid_topics))
-        elif self._disable_classifier and not self._disable_llm:  # Use only LLM
-            if invalid_topics:
-                return self.get_topic_llm(value, list(invalid_topics))
+
+        # Use ensemble (Zero-Shot + Ensemble)
+        elif not self._disable_classifier and not self._disable_llm:
+            found_topics = self.get_topic_ensemble(value, all_topics)
+
+        # Use only LLM
+        elif self._disable_classifier and not self._disable_llm:
+            found_topics = self.get_topic_llm(value, all_topics)
 
         # Use only Zero-Shot
-        topics, scores = self.get_topic_zero_shot(
-            value, list(invalid_topics) + list(valid_topics)
-        )
-        succesfully_on_topic = []
-        for score, topic in zip(scores, topics):
-            if score > self._model_threshold and topic in self._valid_topics:
-                succesfully_on_topic.append(topic)
-            if score > self._model_threshold and topic in self._invalid_topics:
-                return FailResult(
-                    error_message=f"Invalid {topic} was found to be relevant."
-                )
-        if not succesfully_on_topic:
+        elif not self._disable_classifier and self._disable_llm:
+            found_topics = self.get_topic_zero_shot(value, all_topics)
+
+        # Determine if valid or invalid topics were found
+        invalid_topics_found = []
+        valid_topics_found = []
+        for topic in found_topics:
+            if topic in self._valid_topics:
+                valid_topics_found.append(topic)
+            elif topic in self._invalid_topics:
+                invalid_topics_found.append(topic)
+
+        # Require at least one valid topic and no invalid topics
+        if invalid_topics_found:
+            return FailResult(
+                error_message=f"Invalid topics found: {invalid_topics_found}"
+            )
+        if not valid_topics_found:
             return FailResult(error_message="No valid topic was found.")
+
         return PassResult()
