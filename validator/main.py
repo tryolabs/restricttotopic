@@ -181,11 +181,11 @@ class RestrictToTopic(Validator):
 
         return (api_key, api_base)
 
-    # @retry(
-    #     wait=wait_random_exponential(min=1, max=60),
-    #     stop=stop_after_attempt(5),
-    #     reraise=True,
-    # )
+    @retry(
+        wait=wait_random_exponential(min=1, max=60),
+        stop=stop_after_attempt(5),
+        reraise=True,
+    )
     def call_llm(self, text: str, topics: List[str]) -> str:
         """Call the LLM with the given prompt.
 
@@ -301,19 +301,19 @@ class RestrictToTopic(Validator):
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
 
-        # Check which model(s) to use
+        # Verify at least one is enabled
         if self._disable_classifier and self._disable_llm:  # Error, no model set
             raise ValueError("Either classifier or llm must be enabled.")
 
-        # Use ensemble (Zero-Shot + Ensemble)
+        # Case: both enabled/ensemble (Zero-Shot + Ensemble)
         elif not self._disable_classifier and not self._disable_llm:
             found_topics = self.get_topic_ensemble(value, all_topics)
 
-        # Use only LLM
+        # Case: Only use LLM
         elif self._disable_classifier and not self._disable_llm:
             found_topics = self.get_topic_llm(value, all_topics)
 
-        # Use only Zero-Shot
+        # Case: Only use Zero-Shot
         elif not self._disable_classifier and self._disable_llm:
             found_topics = self.get_topic_zero_shot(value, all_topics)
 
