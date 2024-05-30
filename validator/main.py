@@ -16,7 +16,7 @@ from transformers import pipeline
 
 
 @register_validator(name="tryolabs/restricttotopic", data_type="string")
-class RestrictToTopic(Validator):
+class RestrictToTopic(Validator):  # type: ignore
     """Checks if text's main topic is specified within a list of valid topics
     and ensures that the text is not about any of the invalid topics.
 
