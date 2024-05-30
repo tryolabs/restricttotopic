@@ -132,7 +132,19 @@ class RestrictToTopic(Validator):
             self._valid_topics, self._invalid_topics
         )
 
-    def _create_json_schema(self, valid_topics: list, invalid_topics: list):
+    def _create_json_schema(self, valid_topics: list, invalid_topics: list) -> str:
+        """Creates a json schema that an LLM will fill out. The json schema contains
+        one of each of the provided topics, as well as a blank 'present' and 'confidence'
+        for the llm to fill in.
+
+        Args:
+            valid_topics (list): The valid topics to provide as one of the json schema
+            invalid_topics (list): Invalid topics to provide as one of the json schema
+
+        Returns:
+            str: The resulting json schema with unfilled data types
+        """
+
         json_schema = []
         for topic in set(valid_topics + invalid_topics):
             json_schema.append(
@@ -159,7 +171,17 @@ class RestrictToTopic(Validator):
 
         return list(set(zero_shot_topics + llm_topics))
 
-    def get_topic_llm(self, text: str, candidate_topics: List[str]) -> ValidationResult:
+    def get_topic_llm(self, text: str, candidate_topics: List[str]) -> list[str]:
+        """Returns a list of the topics identified in the given text using an LLM
+        callable
+
+        Args:
+            text (str): The input text to classify topics.
+            candidate_topics (List[str]): The topics to identify if present in the text.
+
+        Returns:
+            list[str]: The topics found in the input text.
+        """
         response = self.call_llm(text)
         topics = json.loads(response)
         found_topics = []
@@ -171,6 +193,11 @@ class RestrictToTopic(Validator):
         return found_topics
 
     def get_client_args(self) -> Tuple[Optional[str], Optional[str]]:
+        """Returns neccessary data for api calls.
+
+        Returns:
+            Tuple[Optional[str], Optional[str]]: api key and api base values
+        """
         kwargs = {}
         context_copy = contextvars.copy_context()
         for key, context_var in context_copy.items():
