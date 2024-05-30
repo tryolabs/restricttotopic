@@ -120,15 +120,15 @@ class RestrictToTopic(Validator):
         self, text: str, candidate_topics: List[str]
     ) -> ValidationResult:
         topics, scores = self.get_topic_zero_shot(text, candidate_topics)
-        succesfully_on_topic = []
+        failed = []
         for score, topic in zip(scores, topics):
-            if score > self._model_threshold and topic in self._valid_topics:
-                succesfully_on_topic.append(topic)
             if score > self._model_threshold and topic in self._invalid_topics:
-                return FailResult(
-                    error_message=f"Invalid topic {topic} was found to be relevant."
-                )
+                failed.append(topic)
 
+        if failed:
+            return FailResult(
+                error_message=f"The following invalid topics were found to be relevant: {failed}",
+            )
         return self.get_topic_llm(text, candidate_topics)
 
     def get_topic_llm(self, text: str, candidate_topics: List[str]) -> ValidationResult:
@@ -195,6 +195,7 @@ class RestrictToTopic(Validator):
                 api_key, api_base = self.get_client_args()
                 response = OpenAIClient(api_key, api_base).create_chat_completion(
                     model=llm_callable,
+                    response_format={"type": "json_object"},
                     messages=[
                         {
                             "role": "user",
