@@ -234,10 +234,7 @@ class RestrictToTopic(Validator):
             raise ValueError(
                 "`valid_topics` must be set and contain at least one topic."
             )
-        if not invalid_topics:
-            raise ValueError(
-                "`invalid topics` must be set and contain at least one topic."
-            )
+
         # throw if valid and invalid topics are not disjoint
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
@@ -247,10 +244,12 @@ class RestrictToTopic(Validator):
             raise ValueError("Either classifier or llm must be enabled.")
         elif (
             not self._disable_classifier and not self._disable_llm
-        ):  # Use ensemble (Zero-Shot + Ensemble)
-            return self.get_topic_ensemble(value, list(invalid_topics))
+        ):  
+            if invalid_topics:# Use ensemble (Zero-Shot + Ensemble)
+                return self.get_topic_ensemble(value, list(invalid_topics))
         elif self._disable_classifier and not self._disable_llm:  # Use only LLM
-            return self.get_topic_llm(value, list(invalid_topics))
+            if invalid_topics:
+                return self.get_topic_llm(value, list(invalid_topics))
 
         # Use only Zero-Shot
         topics, scores = self.get_topic_zero_shot(
