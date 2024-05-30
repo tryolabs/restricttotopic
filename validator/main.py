@@ -160,12 +160,14 @@ class RestrictToTopic(Validator):
         return list(set(zero_shot_topics + llm_topics))
 
     def get_topic_llm(self, text: str, candidate_topics: List[str]) -> ValidationResult:
-        response = self.call_llm(text, candidate_topics)
+        response = self.call_llm(text)
         topics = json.loads(response)
         found_topics = []
         for topic, data in topics.items():
             if data["present"] and data["confidence"] > self._llm_threshold:
-                found_topics.append(topic)
+                # Verify the llm didn't hallucinate a topic.
+                if topic in candidate_topics:
+                    found_topics.append(topic)
         return found_topics
 
     def get_client_args(self) -> Tuple[Optional[str], Optional[str]]:
@@ -186,7 +188,7 @@ class RestrictToTopic(Validator):
         stop=stop_after_attempt(5),
         reraise=True,
     )
-    def call_llm(self, text: str, topics: List[str]) -> str:
+    def call_llm(self, text: str) -> str:
         """Call the LLM with the given prompt.
 
         Expects a function that takes a string and returns a string.
