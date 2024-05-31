@@ -3,7 +3,6 @@ import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from guardrails.utils.casting_utils import to_int
-from guardrails.utils.openai_utils import OpenAIClient
 from guardrails.validator_base import (
     FailResult,
     PassResult,
@@ -11,6 +10,7 @@ from guardrails.validator_base import (
     Validator,
     register_validator,
 )
+from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from transformers import pipeline
 
@@ -107,7 +107,9 @@ class RestrictToTopic(Validator):
             self._invalid_topics = invalid_topics
 
         self._device = (
-            device.lower() if device.lower() in ["cpu", "mps"] else int(device)
+            str(device).lower()
+            if str(device).lower() in ["cpu", "mps"]
+            else int(device)
         )
         self._model = model
         self._disable_classifier = disable_classifier
@@ -135,7 +137,7 @@ class RestrictToTopic(Validator):
             # TODO api endpoint
             ...
 
-        self._json_schema = self._create_json_schema(
+        self._json_schema, self._tools = self._create_json_schema(
             self._valid_topics, self._invalid_topics
         )
 
@@ -151,13 +153,38 @@ class RestrictToTopic(Validator):
         Returns:
             str: The resulting json schema with unfilled data types
         """
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "is_topic_relevant",
+                    "description": "Determine if the provided text is about a topic, with a confidence score.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Simply the repeated name of the given topic.",
+                            },
+                            "present": {
+                                "type": "boolean",
+                                "description": "If the given topic is discussed in the given text.",
+                            },
+                            "confidence": {
+                                "type": "integer",
+                                "description": "The confidence level of the topic being present in the text, from 1-5",
+                            },
+                        },
+                        "required": ["name", "present", "confidence"],
+                    },
+                },
+            },
+        ]
 
         json_schema = []
         for topic in set(valid_topics + invalid_topics):
-            json_schema.append(
-                {topic: {"present": "[bool]", "confidence": "[int, 1, 5]"}}
-            )
-        return str(json_schema)
+            json_schema.append({"topic": topic})
+        return json_schema, tools
 
     def get_topics_ensemble(self, text: str, candidate_topics: List[str]) -> list[str]:
         """Finds the topics in the input text based on if it is determined by the zero
@@ -189,14 +216,13 @@ class RestrictToTopic(Validator):
         Returns:
             list[str]: The topics found in the input text.
         """
-        response = self.call_llm(text)
-        topics = json.loads(response)
+        topics = self.call_llm(text)
         found_topics = []
-        for topic, data in topics.items():
-            if data["present"] and data["confidence"] > self._llm_threshold:
+        for llm_result in topics:
+            if llm_result["present"] and llm_result["confidence"] > self._llm_threshold:
                 # Verify the llm didn't hallucinate a topic.
-                if topic in candidate_topics:
-                    found_topics.append(topic)
+                if llm_result["name"] in candidate_topics:
+                    found_topics.append(llm_result["name"])
         return found_topics
 
     def get_client_args(self) -> Tuple[Optional[str], Optional[str]]:
@@ -255,13 +281,14 @@ class RestrictToTopic(Validator):
 
             def openai_callable(text: str) -> str:
                 api_key, api_base = self.get_client_args()
-                response = OpenAIClient(api_key, api_base).create_chat_completion(
+                client = OpenAI()
+                response = client.chat.completions.create(
                     model=llm_callable,
                     response_format={"type": "json_object"},
                     messages=[
                         {
                             "role": "user",
-                            "content": f"""Given a text, fill out the provided json schema with a confidence that the topic is relevant to the text.
+                            "content": f"""Given a series of topics, determine if the topic is present in the provided text. Return the result as json.
                             
                             Text
                             ----
@@ -277,8 +304,12 @@ class RestrictToTopic(Validator):
                             """,
                         },
                     ],
+                    tools=self._tools,
                 )
-                return response.output
+                tool_calls = []
+                for tool_call in response.choices[0].message.tool_calls:
+                    tool_calls.append(json.loads(tool_call.function.arguments))
+                return tool_calls
 
             self._llm_callable = openai_callable
         elif isinstance(llm_callable, Callable):
