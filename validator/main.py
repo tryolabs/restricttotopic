@@ -138,9 +138,6 @@ class RestrictToTopic(Validator):
             # TODO api endpoint
             ...
 
-        self._json_schema, self._tools = self._create_json_schema(
-            self._valid_topics, self._invalid_topics
-        )
 
     def get_topics_ensemble(self, text: str, candidate_topics: List[str]) -> List[str]:
         """Finds the topics in the input text based on if it is determined by the zero
