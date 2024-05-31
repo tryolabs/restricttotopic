@@ -1,8 +1,9 @@
 import contextvars
 import json
+import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from guardrails.utils.casting_utils import to_int
+from dotenv import load_dotenv
 from guardrails.validator_base import (
     FailResult,
     PassResult,
@@ -225,23 +226,26 @@ class RestrictToTopic(Validator):
                     found_topics.append(llm_result["name"])
         return found_topics
 
-    def get_client_args(self) -> Tuple[Optional[str], Optional[str]]:
+    def get_client_args(self) -> str:
         """Returns neccessary data for api calls.
 
         Returns:
-            Tuple[Optional[str], Optional[str]]: api key and api base values
+            str: api key
         """
-        kwargs = {}
-        context_copy = contextvars.copy_context()
-        for key, context_var in context_copy.items():
-            if key.name == "kwargs" and isinstance(kwargs, dict):
-                kwargs = context_var
-                break
 
-        api_key = kwargs.get("api_key")
-        api_base = kwargs.get("api_base")
+        load_dotenv()
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            kwargs = {}
+            context_copy = contextvars.copy_context()
+            for key, context_var in context_copy.items():
+                if key.name == "kwargs" and isinstance(kwargs, dict):
+                    kwargs = context_var
+                    break
 
-        return (api_key, api_base)
+            api_key = kwargs.get("api_key")
+
+        return api_key
 
     @retry(
         wait=wait_random_exponential(min=1, max=60),
@@ -280,8 +284,8 @@ class RestrictToTopic(Validator):
                 )
 
             def openai_callable(text: str) -> str:
-                api_key, api_base = self.get_client_args()
-                client = OpenAI()
+                api_key = self.get_client_args()
+                client = OpenAI(api_key=api_key)
                 response = client.chat.completions.create(
                     model=llm_callable,
                     response_format={"type": "json_object"},
