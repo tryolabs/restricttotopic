@@ -187,7 +187,7 @@ class RestrictToTopic(Validator):
             json_schema.append({"topic": topic})
         return json_schema, tools
 
-    def get_topics_ensemble(self, text: str, candidate_topics: List[str]) -> list[str]:
+    def get_topics_ensemble(self, text: str, candidate_topics: List[str]) -> List[str]:
         """Finds the topics in the input text based on if it is determined by the zero
         shot model or the llm.
 
@@ -196,7 +196,7 @@ class RestrictToTopic(Validator):
             candidate_topics (List[str]): The topics to search for in the input text
 
         Returns:
-            list[str]: The found topics
+            List[str]: The found topics
         """
         # Find topics based on zero shot model
         zero_shot_topics = self.get_topics_zero_shot(text, candidate_topics)
@@ -206,7 +206,7 @@ class RestrictToTopic(Validator):
 
         return list(set(zero_shot_topics + llm_topics))
 
-    def get_topics_llm(self, text: str, candidate_topics: List[str]) -> list[str]:
+    def get_topics_llm(self, text: str, candidate_topics: List[str]) -> List[str]:
         """Returns a list of the topics identified in the given text using an LLM
         callable
 
@@ -215,7 +215,7 @@ class RestrictToTopic(Validator):
             candidate_topics (List[str]): The topics to identify if present in the text.
 
         Returns:
-            list[str]: The topics found in the input text.
+            List[str]: The topics found in the input text.
         """
         topics = self.call_llm(text)
         found_topics = []
@@ -321,7 +321,7 @@ class RestrictToTopic(Validator):
         else:
             raise ValueError("llm_callable must be a string or a Callable")
 
-    def get_topics_zero_shot(self, text: str, candidate_topics: List[str]) -> list[str]:
+    def get_topics_zero_shot(self, text: str, candidate_topics: List[str]) -> List[str]:
         """Gets the topics found through the zero shot classifier
 
         Args:
@@ -329,7 +329,7 @@ class RestrictToTopic(Validator):
             candidate_topics (List[str]): The potential topics to look for
 
         Returns:
-            list[str]: The resulting topics found that meet the given threshold
+            List[str]: The resulting topics found that meet the given threshold
         """
         result = self._classifier(text, candidate_topics)
         topics = result["labels"]
