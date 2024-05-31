@@ -59,12 +59,17 @@ class RestrictToTopic(Validator):
         disable_classifier (bool, Optional, defaults to False): controls whether
             to use the Zero-Shot model. At least one of disable_classifier and
             disable_llm must be False.
+        classifier_api_endpoint (str, Optional, defaults to None): An API endpoint
+            to recieve post requests that will be used when provided. If not provided, a
+            local model will be initialized.
         disable_llm (bool, Optional, defaults to False): controls whether to use
             the LLM fallback. At least one of disable_classifier and
             disable_llm must be False.
-        model_threshold (float, Optional, defaults to 0.5): The threshold used to
+        zero_shot_threshold (float, Optional, defaults to 0.5): The threshold used to
             determine whether to accept a topic from the Zero-Shot model. Must be
             a number between 0 and 1.
+        llm_threshold (int, Optional, defaults to 3): The threshold used to determine
+        if a topic exists based on the provided llm api. Must be between 0 and 5.
     """
 
     def __init__(
