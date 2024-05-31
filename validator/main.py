@@ -335,21 +335,17 @@ class RestrictToTopic(Validator):
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
 
-        # Verify at least one is enabled
-        if self._disable_classifier and self._disable_llm:  # Error, no model set
-            raise ValueError("Either classifier or llm must be enabled.")
-
-        # Case: both enabled/ensemble (Zero-Shot + Ensemble)
-        elif not self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topic_ensemble(value, all_topics)
-
-        # Case: Only use LLM
+        # Ensemble method
+        if not self._disable_classifier and not self._disable_llm:
+            found_topics = self.get_topics_ensemble(value, invalid_topics)
+        # LLM Classifier Only
         elif self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topic_llm(value, all_topics)
-
-        # Case: Only use Zero-Shot
+            found_topics = self.get_topics_llm(value, invalid_topics)
+        # Zero Shot Classifier Only
         elif not self._disable_classifier and self._disable_llm:
-            found_topics = self.get_topic_zero_shot(value, all_topics)
+            found_topics, _ = self.get_topic_zero_shot(value, invalid_topics)
+        else:
+            raise ValueError("Either classifier or llm must be enabled.")
 
         # Determine if valid or invalid topics were found
         invalid_topics_found = []
