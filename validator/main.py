@@ -76,7 +76,7 @@ class RestrictToTopic(Validator):
         self,
         valid_topics: List[str],
         invalid_topics: Optional[List[str]] = [],
-        device: Optional[int] = -1,
+        device: Optional[Union[str, int]] = -1,
         model: Optional[str] = "facebook/bart-large-mnli",
         llm_callable: Union[str, Callable, None] = None,
         disable_classifier: Optional[bool] = False,
@@ -106,7 +106,9 @@ class RestrictToTopic(Validator):
         else:
             self._invalid_topics = invalid_topics
 
-        self._device = device if device == "mps" else to_int(device)
+        self._device = (
+            device.lower() if device.lower() in ["cpu", "mps"] else int(device)
+        )
         self._model = model
         self._disable_classifier = disable_classifier
         self._disable_llm = disable_llm
