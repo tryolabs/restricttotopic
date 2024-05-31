@@ -157,7 +157,7 @@ class RestrictToTopic(Validator):
             )
         return str(json_schema)
 
-    def get_topic_ensemble(self, text: str, candidate_topics: List[str]) -> list[str]:
+    def get_topics_ensemble(self, text: str, candidate_topics: List[str]) -> list[str]:
         """Finds the topics in the input text based on if it is determined by the zero
         shot model or the llm.
 
@@ -169,14 +169,14 @@ class RestrictToTopic(Validator):
             list[str]: The found topics
         """
         # Find topics based on zero shot model
-        zero_shot_topics = self.get_topic_zero_shot(text, candidate_topics)
+        zero_shot_topics = self.get_topics_zero_shot(text, candidate_topics)
 
         # Find topics based on llm
-        llm_topics = self.get_topic_llm(text, candidate_topics)
+        llm_topics = self.get_topics_llm(text, candidate_topics)
 
         return list(set(zero_shot_topics + llm_topics))
 
-    def get_topic_llm(self, text: str, candidate_topics: List[str]) -> list[str]:
+    def get_topics_llm(self, text: str, candidate_topics: List[str]) -> list[str]:
         """Returns a list of the topics identified in the given text using an LLM
         callable
 
@@ -284,7 +284,7 @@ class RestrictToTopic(Validator):
         else:
             raise ValueError("llm_callable must be a string or a Callable")
 
-    def get_topic_zero_shot(self, text: str, candidate_topics: List[str]) -> list[str]:
+    def get_topics_zero_shot(self, text: str, candidate_topics: List[str]) -> list[str]:
         """Gets the topics found through the zero shot classifier
 
         Args:
@@ -337,13 +337,13 @@ class RestrictToTopic(Validator):
 
         # Ensemble method
         if not self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topics_ensemble(value, invalid_topics)
+            found_topics = self.get_topics_ensemble(value, all_topics)
         # LLM Classifier Only
         elif self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topics_llm(value, invalid_topics)
+            found_topics = self.get_topics_llm(value, all_topics)
         # Zero Shot Classifier Only
         elif not self._disable_classifier and self._disable_llm:
-            found_topics, _ = self.get_topic_zero_shot(value, invalid_topics)
+            found_topics = self.get_topics_zero_shot(value, all_topics)
         else:
             raise ValueError("Either classifier or llm must be enabled.")
 
