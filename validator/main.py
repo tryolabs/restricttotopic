@@ -85,7 +85,7 @@ class RestrictToTopic(Validator):
         disable_llm: Optional[bool] = False,
         on_fail: Optional[Callable[..., Any]] = None,
         zero_shot_threshold: Optional[float] = 0.5,
-        llm_theshold: Optional[int] = 3,
+        llm_threshold: Optional[int] = 3,
     ):
         super().__init__(
             valid_topics=valid_topics,
@@ -98,7 +98,7 @@ class RestrictToTopic(Validator):
             llm_callable=llm_callable,
             on_fail=on_fail,
             zero_shot_threshold=zero_shot_threshold,
-            llm_theshold=llm_theshold,
+            llm_threshold=llm_threshold,
         )
         self._valid_topics = valid_topics
 
@@ -121,7 +121,7 @@ class RestrictToTopic(Validator):
         if self._zero_shot_threshold < 0 or self._zero_shot_threshold > 1:
             raise ValueError("zero_shot_threshold must be a number between 0 and 1")
 
-        self._llm_threshold = llm_theshold
+        self._llm_threshold = llm_threshold
         if self._llm_threshold < 0 or self._llm_threshold > 5:
             raise ValueError("llm_threshold must be a number between 0 and 5")
         self.set_callable(llm_callable)
