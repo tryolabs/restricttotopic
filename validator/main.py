@@ -46,8 +46,8 @@ class RestrictToTopic(Validator):
             (one or many).
         invalid_topics (List[str], Optional, defaults to []): topics that the
             text cannot be about.
-        device (int, Optional, defaults to -1): Device ordinal for CPU/GPU
-            supports for Zero-Shot classifier. Setting this to -1 will leverage
+        device (Optional[Union[str, int]], Optional, defaults to -1): Device ordinal for
+            CPU/GPU supports for Zero-Shot classifier. Setting this to -1 will leverage
             CPU, a positive will run the Zero-Shot model on the associated CUDA
             device id.
         model (str, Optional, defaults to 'facebook/bart-large-mnli'): The
@@ -55,7 +55,7 @@ class RestrictToTopic(Validator):
             list of all models here:
             https://huggingface.co/models?pipeline_tag=zero-shot-classification
         llm_callable (Union[str, Callable, None], Optional, defaults to
-            'gpt-3.5-turbo'): Either the name of the OpenAI model, or a callable
+            'gpt-4o'): Either the name of the OpenAI model, or a callable
             that takes a prompt and returns a response.
         disable_classifier (bool, Optional, defaults to False): controls whether
             to use the Zero-Shot model. At least one of disable_classifier and
@@ -137,7 +137,6 @@ class RestrictToTopic(Validator):
         else:
             # TODO api endpoint
             ...
-
 
     def get_topics_ensemble(self, text: str, candidate_topics: List[str]) -> List[str]:
         """Finds the topics in the input text based on if it is determined by the zero
