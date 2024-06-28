@@ -350,3 +350,33 @@ class RestrictToTopic(Validator):
             return FailResult(error_message="No valid topic was found.")
 
         return PassResult()
+    
+    def _inference_local(self, model_input: Any) -> Any:
+        """Local inference method for the restrict-to-topic validator."""
+        text = model_input["text"]
+        valid_topics = model_input["valid_topics"]
+        invalid_topics = model_input["invalid_topics"]
+
+        found_topics = self.get_topics_zero_shot(text, valid_topics + invalid_topics)
+        return found_topics
+    
+    def _inference_remote(self, model_input: Any) -> Any:
+        """Remote inference method for the restrict-to-topic validator."""
+        request_body = {
+            "model_name": "RestrictToTopic",
+            "text": model_input["text"],
+            "valid_topics": model_input["valid_topics"],
+            "invalid_topics": model_input["invalid_topics"]
+        }
+        response = self._hub_inference_request(json.dumps(request_body))
+        
+        if not response or 'outputs' not in response:
+            raise ValueError("Invalid response from remote inference")
+        
+        outputs = response['outputs'][0]['data'][0]
+        result = json.loads(outputs)
+        
+        if 'found_topics' in result:
+            return result['found_topics']
+        else:
+            raise ValueError("Invalid format of the response from remote inference")
