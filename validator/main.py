@@ -384,3 +384,4 @@ class RestrictToTopic(Validator):
             return result["found_topics"]
         else:
             raise ValueError("Invalid format of the response from remote inference")
+        
