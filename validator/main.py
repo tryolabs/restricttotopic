@@ -86,6 +86,8 @@ class RestrictToTopic(Validator):
         on_fail: Optional[Callable[..., Any]] = None,
         zero_shot_threshold: Optional[float] = 0.5,
         llm_threshold: Optional[int] = 3,
+        use_local: bool = False,
+        **kwargs,
     ):
         super().__init__(
             valid_topics=valid_topics,
@@ -126,7 +128,7 @@ class RestrictToTopic(Validator):
             raise ValueError("llm_threshold must be a number between 0 and 5")
         self.set_callable(llm_callable)
 
-        if self._classifier_api_endpoint is None:
+        if self._classifier_api_endpoint is None and kwargs.get("use_local", False):
             self._classifier = pipeline(
                 "zero-shot-classification",
                 model=self._model,
@@ -350,3 +352,36 @@ class RestrictToTopic(Validator):
             return FailResult(error_message="No valid topic was found.")
 
         return PassResult()
+    
+    def _inference_local(self, model_input: Any) -> Any:
+        """Local inference method for the restrict-to-topic validator."""
+        text = model_input["text"]
+        candidate_topics = model_input["valid_topics"] + model_input["invalid_topics"]
+        
+        zero_shot_topics = self.get_topics_zero_shot(text, candidate_topics)
+
+        llm_topics = self.get_topics_llm(text, candidate_topics)
+
+        return list(set(zero_shot_topics + llm_topics))
+    
+    def _inference_remote(self, model_input: Any) -> Any:
+        """Remote inference method for the restrict-to-topic validator."""
+        request_body = {
+            "model_name": "RestrictToTopic",
+            "text": model_input["text"],
+            "valid_topics": model_input["valid_topics"],
+            "invalid_topics": model_input["invalid_topics"]
+        }
+        response = self._hub_inference_request(json.dumps(request_body))
+        
+        if not response or "outputs" not in response:
+            raise ValueError("Invalid response from remote inference")
+        
+        outputs = response["outputs"][0]["data"][0]
+        result = json.loads(outputs)
+        
+        if "found_topics" in result:
+            return result["found_topics"]
+        else:
+            raise ValueError("Invalid format of the response from remote inference")
+        
