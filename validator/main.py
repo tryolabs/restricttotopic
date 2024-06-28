@@ -101,6 +101,7 @@ class RestrictToTopic(Validator):
             on_fail=on_fail,
             zero_shot_threshold=zero_shot_threshold,
             llm_threshold=llm_threshold,
+            **kwargs,
         )
         self._valid_topics = valid_topics
 
