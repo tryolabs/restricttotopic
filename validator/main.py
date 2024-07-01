@@ -16,7 +16,9 @@ from tenacity import retry, stop_after_attempt, wait_random_exponential
 from transformers import pipeline
 
 
-@register_validator(name="tryolabs/restricttotopic", data_type="string", has_guardrails_endpoint=True)
+@register_validator(
+    name="tryolabs/restricttotopic", data_type="string", has_guardrails_endpoint=True
+)
 class RestrictToTopic(Validator):
     """Checks if text's main topic is specified within a list of valid topics
     and ensures that the text is not about any of the invalid topics.
