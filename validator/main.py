@@ -131,7 +131,7 @@ class RestrictToTopic(Validator):
             raise ValueError("llm_threshold must be a number between 0 and 5")
         self.set_callable(llm_callable)
 
-        if self._classifier_api_endpoint is None and kwargs.get("use_local", False):
+        if self._classifier_api_endpoint is None:
             self._classifier = pipeline(
                 "zero-shot-classification",
                 model=self._model,
