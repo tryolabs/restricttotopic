@@ -86,7 +86,6 @@ class RestrictToTopic(Validator):
         on_fail: Optional[Callable[..., Any]] = None,
         zero_shot_threshold: Optional[float] = 0.5,
         llm_threshold: Optional[int] = 3,
-        use_local: bool = True,
         **kwargs,
     ):
         super().__init__(
