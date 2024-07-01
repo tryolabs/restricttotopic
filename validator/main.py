@@ -16,7 +16,7 @@ from tenacity import retry, stop_after_attempt, wait_random_exponential
 from transformers import pipeline
 
 
-@register_validator(name="tryolabs/restricttotopic", data_type="string")
+@register_validator(name="tryolabs/restricttotopic", data_type="string", has_guardrails_endpoint=True)
 class RestrictToTopic(Validator):
     """Checks if text's main topic is specified within a list of valid topics
     and ensures that the text is not about any of the invalid topics.
@@ -86,7 +86,7 @@ class RestrictToTopic(Validator):
         on_fail: Optional[Callable[..., Any]] = None,
         zero_shot_threshold: Optional[float] = 0.5,
         llm_threshold: Optional[int] = 3,
-        use_local: bool = False,
+        use_local: bool = True,
         **kwargs,
     ):
         super().__init__(
@@ -104,6 +104,8 @@ class RestrictToTopic(Validator):
             **kwargs,
         )
         self._valid_topics = valid_topics
+        self.use_local = kwargs.get("use_local", None)
+        self.validation_endpoint = kwargs.get("validation_endpoint", None)
 
         if invalid_topics is None:
             self._invalid_topics = []
