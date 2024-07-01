@@ -105,9 +105,6 @@ class RestrictToTopic(Validator):
             **kwargs,
         )
         self._valid_topics = valid_topics
-        self.use_local = kwargs.get("use_local", None)
-        self.validation_endpoint = kwargs.get("validation_endpoint", None)
-
         if invalid_topics is None:
             self._invalid_topics = []
         else:
