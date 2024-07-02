@@ -322,18 +322,13 @@ class RestrictToTopic(Validator):
         # throw if valid and invalid topics are not disjoint
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
-
-        # Ensemble method
-        if not self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topics_ensemble(value, all_topics)
-        # LLM Classifier Only
-        elif self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topics_llm(value, all_topics)
-        # Zero Shot Classifier Only
-        elif not self._disable_classifier and self._disable_llm:
-            found_topics = self.get_topics_zero_shot(value, all_topics)
-        else:
-            raise ValueError("Either classifier or llm must be enabled.")
+        
+        model_input = {
+            "text": value,
+            "valid_topics": list(valid_topics),
+            "invalid_topics": list(invalid_topics),
+        }
+        found_topics = self._inference(model_input)
 
         # Determine if valid or invalid topics were found
         invalid_topics_found = []
@@ -381,8 +376,5 @@ class RestrictToTopic(Validator):
         outputs = response["outputs"][0]["data"][0]
         result = json.loads(outputs)
         
-        if "found_topics" in result:
-            return result["found_topics"]
-        else:
-            raise ValueError("Invalid format of the response from remote inference")
+        return result
         
