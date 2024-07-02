@@ -19,9 +19,10 @@ class InferlessPythonModel:
         result = self._classifier(inputs["text"], inputs["candidate_topics"])
         topics = result["labels"]
         scores = result["scores"]
+        zero_shot_threshold = result["zero_shot_threshold"]
         found_topics = []
         for topic, score in zip(topics, scores):
-            if score > self._zero_shot_threshold:
+            if score > zero_shot_threshold:
                 found_topics.append(topic)
         return {"results": found_topics}
         
