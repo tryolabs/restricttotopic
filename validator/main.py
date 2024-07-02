@@ -382,5 +382,3 @@ class RestrictToTopic(Validator):
         result = json.loads(outputs)
         
         return result
-
-        
