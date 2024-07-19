@@ -282,7 +282,7 @@ class RestrictToTopic(Validator):
         Returns:
             List[str]: The resulting topics found that meet the given threshold
         """
-        result = self._inference(text, candidate_topics)
+        result = self._classifier(text, candidate_topics)
         topics = result["labels"]
         scores = result["scores"]
         found_topics = []
@@ -335,6 +335,14 @@ class RestrictToTopic(Validator):
         else:
             raise ValueError("Either classifier or llm must be enabled.")
 
+        model_input = {
+            "text": value,
+            "valid_topics": self._valid_topics,
+            "invalid_topics": self._invalid_topics
+        }
+
+        found_topics = self._inference(model_input)
+
         # Determine if valid or invalid topics were found
         invalid_topics_found = []
         valid_topics_found = []
@@ -368,17 +376,32 @@ class RestrictToTopic(Validator):
     def _inference_remote(self, model_input: Any) -> Any:
         """Remote inference method for the restrict-to-topic validator."""
         request_body = {
-            "model_name": "RestrictToTopic",
-            "text": model_input["text"],
-            "valid_topics": model_input["valid_topics"],
-            "invalid_topics": model_input["invalid_topics"]
+            "inputs": [
+                {
+                    "name": "text",
+                    "shape": [1],
+                    "data": [model_input["text"]],
+                    "datatype": "BYTES"
+                },
+                {
+                    "name": "candidate_topics",
+                    "shape": [len(model_input["valid_topics"]) + len(model_input["invalid_topics"])],
+                    "data": model_input["valid_topics"] + model_input["invalid_topics"],
+                    "datatype": "BYTES"
+                },
+                {
+                    "name": "zero_shot_threshold",
+                    "shape": [1],
+                    "data": [self._zero_shot_threshold],
+                    "datatype": "FP32"
+                }
+            ]
         }
-        response = self._hub_inference_request(json.dumps(request_body))
+        
+        response = self._hub_inference_request(json.dumps(request_body), self.validation_endpoint)
         
         if not response or "outputs" not in response:
-            raise ValueError("Invalid response from remote inference")
+            raise ValueError("Invalid response from remote inference", response)
         
-        outputs = response["outputs"][0]["data"][0]
-        result = json.loads(outputs)
+        return response["outputs"][0]["data"]
         
-        return result
