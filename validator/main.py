@@ -404,4 +404,4 @@ class RestrictToTopic(Validator):
             raise ValueError("Invalid response from remote inference", response)
         
         return response["outputs"][0]["data"]
-        
+    
