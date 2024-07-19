@@ -346,13 +346,14 @@ class RestrictToTopic(Validator):
         
         # Require at least one valid topic and no invalid topics
         if invalid_topics_found:
-            error_spans.append(
-                ErrorSpan(
-                    start=value.find(topic),
-                    end=value.find(topic) + len(topic),
-                    reason=f"Text contains invalid topic: {topic}",
+            for topic in invalid_topics_found:
+                error_spans.append(
+                    ErrorSpan(
+                        start=value.find(topic),
+                        end=value.find(topic) + len(topic),
+                        reason=f"Text contains invalid topic: {topic}",
+                    )
                 )
-            )
             return FailResult(
                 error_message=f"Invalid topics found: {invalid_topics_found}",
                 error_spans=error_spans
