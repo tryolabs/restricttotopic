@@ -23,6 +23,8 @@ class InferlessPythonModel:
         for topic, score in zip(topics, scores):
             if score > inputs["zero_shot_threshold"]:
                 found_topics.append(topic)
+        if not found_topics:
+            return {"results": ["No valid topic found."]}
         return {"results": found_topics}
         
     def finalize(self):
