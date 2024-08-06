@@ -153,7 +153,7 @@ class RestrictToTopic(Validator):
             List[str]: The found topics
         """
         # Find topics based on zero shot model
-        zero_shot_topics = self._inference(text, candidate_topics)
+        zero_shot_topics = self._inference({"text": text, "valid_topics": candidate_topics, "invalid_topics": []})
 
         # Find topics based on llm
         llm_topics = self.get_topics_llm(text, candidate_topics)
@@ -305,6 +305,12 @@ class RestrictToTopic(Validator):
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
 
+        model_input = {
+            "text": value,
+            "valid_topics": self._valid_topics,
+            "invalid_topics": self._invalid_topics
+        }
+        
         # Ensemble method
         if not self._disable_classifier and not self._disable_llm:
             found_topics = self.get_topics_ensemble(value, all_topics)
@@ -313,18 +319,10 @@ class RestrictToTopic(Validator):
             found_topics = self.get_topics_llm(value, all_topics)
         # Zero Shot Classifier Only
         elif not self._disable_classifier and self._disable_llm:
-            found_topics = self._inference(value, all_topics)
+            found_topics = self._inference(model_input)
         else:
             raise ValueError("Either classifier or llm must be enabled.")
-        
-        model_input = {
-            "text": value,
-            "valid_topics": self._valid_topics,
-            "invalid_topics": self._invalid_topics
-        }
-
-        found_topics = self._inference(model_input)
-
+    
         # Determine if valid or invalid topics were found
         invalid_topics_found = []
         valid_topics_found = []
