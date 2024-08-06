@@ -323,18 +323,6 @@ class RestrictToTopic(Validator):
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
 
-        # Ensemble method
-        if not self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topics_ensemble(value, all_topics)
-        # LLM Classifier Only
-        elif self._disable_classifier and not self._disable_llm:
-            found_topics = self.get_topics_llm(value, all_topics)
-        # Zero Shot Classifier Only
-        elif not self._disable_classifier and self._disable_llm:
-            found_topics = self.get_topics_zero_shot(value, all_topics)
-        else:
-            raise ValueError("Either classifier or llm must be enabled.")
-
         model_input = {
             "text": value,
             "valid_topics": self._valid_topics,
@@ -361,6 +349,23 @@ class RestrictToTopic(Validator):
             return FailResult(error_message="No valid topic was found.")
 
         return PassResult()
+    
+    def _inference(self, model_input: Any) -> Any:
+        """Calls the appropriate inference method based on the configuration."""
+        text = model_input["text"]
+        candidate_topics = model_input["valid_topics"] + model_input["invalid_topics"]
+
+        # Ensemble method
+        if not self._disable_classifier and not self._disable_llm:
+            return self.get_topics_ensemble(text, candidate_topics)
+        # LLM Classifier Only
+        elif self._disable_classifier and not self._disable_llm:
+            return self.get_topics_llm(text, candidate_topics)
+        # Zero Shot Classifier Only
+        elif not self._disable_classifier and self._disable_llm:
+            return self.get_topics_zero_shot(text, candidate_topics)
+        else:
+            raise ValueError("Either classifier or llm must be enabled.")
     
     def _inference_local(self, model_input: Any) -> Any:
         """Local inference method for the restrict-to-topic validator."""
