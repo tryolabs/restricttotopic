@@ -153,7 +153,7 @@ class RestrictToTopic(Validator):
             List[str]: The found topics
         """
         # Find topics based on zero shot model
-        zero_shot_topics = self.get_topics_zero_shot(text, candidate_topics)
+        zero_shot_topics = self._inference(text, candidate_topics)
 
         # Find topics based on llm
         llm_topics = self.get_topics_llm(text, candidate_topics)
@@ -350,33 +350,20 @@ class RestrictToTopic(Validator):
 
         return PassResult()
     
-    def _inference(self, model_input: Any) -> Any:
-        """Calls the appropriate inference method based on the configuration."""
-        text = model_input["text"]
-        candidate_topics = model_input["valid_topics"] + model_input["invalid_topics"]
-
-        # Ensemble method
-        if not self._disable_classifier and not self._disable_llm:
-            return self.get_topics_ensemble(text, candidate_topics)
-        # LLM Classifier Only
-        elif self._disable_classifier and not self._disable_llm:
-            return self.get_topics_llm(text, candidate_topics)
-        # Zero Shot Classifier Only
-        elif not self._disable_classifier and self._disable_llm:
-            return self.get_topics_zero_shot(text, candidate_topics)
-        else:
-            raise ValueError("Either classifier or llm must be enabled.")
-    
     def _inference_local(self, model_input: Any) -> Any:
         """Local inference method for the restrict-to-topic validator."""
         text = model_input["text"]
         candidate_topics = model_input["valid_topics"] + model_input["invalid_topics"]
-        
-        zero_shot_topics = self.get_topics_zero_shot(text, candidate_topics)
 
-        llm_topics = self.get_topics_llm(text, candidate_topics)
+        result = self._classifier(text, candidate_topics)
+        topics = result["labels"]
+        scores = result["scores"]
+        found_topics = []
+        for topic, score in zip(topics, scores):
+            if score > self._zero_shot_threshold:
+                found_topics.append(topic)
+        return found_topics
 
-        return list(set(zero_shot_topics + llm_topics))
     
     def _inference_remote(self, model_input: Any) -> Any:
         """Remote inference method for the restrict-to-topic validator."""
