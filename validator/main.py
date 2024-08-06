@@ -272,25 +272,6 @@ class RestrictToTopic(Validator):
         else:
             raise ValueError("llm_callable must be a string or a Callable")
 
-    def get_topics_zero_shot(self, text: str, candidate_topics: List[str]) -> List[str]:
-        """Gets the topics found through the zero shot classifier
-
-        Args:
-            text (str): The text to classify
-            candidate_topics (List[str]): The potential topics to look for
-
-        Returns:
-            List[str]: The resulting topics found that meet the given threshold
-        """
-        result = self._classifier(text, candidate_topics)
-        topics = result["labels"]
-        scores = result["scores"]
-        found_topics = []
-        for topic, score in zip(topics, scores):
-            if score > self._zero_shot_threshold:
-                found_topics.append(topic)
-        return found_topics
-
     def validate(
         self, value: str, metadata: Optional[Dict[str, Any]] = {}
     ) -> ValidationResult:
