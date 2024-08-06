@@ -300,10 +300,23 @@ class RestrictToTopic(Validator):
                 "`valid_topics` must be set and contain at least one topic."
             )
 
+        
         # throw if valid and invalid topics are not disjoint
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
 
+        # Ensemble method
+        if not self._disable_classifier and not self._disable_llm:
+            found_topics = self.get_topics_ensemble(value, all_topics)
+        # LLM Classifier Only
+        elif self._disable_classifier and not self._disable_llm:
+            found_topics = self.get_topics_llm(value, all_topics)
+        # Zero Shot Classifier Only
+        elif not self._disable_classifier and self._disable_llm:
+            found_topics = self._inference(value, all_topics)
+        else:
+            raise ValueError("Either classifier or llm must be enabled.")
+        
         model_input = {
             "text": value,
             "valid_topics": self._valid_topics,
