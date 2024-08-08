@@ -14,6 +14,7 @@ class InferlessPythonModel:
                 hypothesis_template="This example has to do with topic {}.",
                 multi_label=True,
             )
+        self._classifier.to("cuda")
         
     def infer(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         result = self._classifier(inputs["text"], inputs["candidate_topics"])
