@@ -1,21 +1,39 @@
-
-
+import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Union
-from transformers import pipeline
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline, ZeroShotClassificationPipeline
 import torch
 
 app = FastAPI()
 
 # Initialize the zero-shot classification pipeline
-classifier = pipeline(
-    "zero-shot-classification",
-    model="facebook/bart-large-mnli",
-    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-    hypothesis_template="This example has to do with topic {}.",
-    multi_label=True,
-)
+model_save_directory = "/opt/ml/model"
+torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+print(f"Using torch device: {torch_device}")
+
+if not os.path.exists(model_save_directory):
+    print(f"Using cached model in {model_save_directory}...")
+    model = AutoModelForSequenceClassification.from_pretrained(model_save_directory)
+    tokenizer = AutoTokenizer.from_pretrained(model_save_directory)
+    classifier = ZeroShotClassificationPipeline(
+        model=model,
+        tokenizer=tokenizer,
+        device=torch.device(torch_device),
+        hypothesis_template="This example has to do with topic {}.",
+        multi_label=True
+    )
+else:
+    print("Downloading model from Hugging Face...")
+    classifier = pipeline(
+        "zero-shot-classification",
+        model="facebook/bart-large-mnli",
+        device=torch.device(torch_device),
+        hypothesis_template="This example has to do with topic {}.",
+        multi_label=True,
+    )
+
 
 class InferenceData(BaseModel):
     name: str
@@ -73,6 +91,17 @@ async def restrict_to_topic(input_request: InputRequest):
     
     print(f"Output data: {output_data}")
     return output_data
+
+
+# Sagemaker specific endpoints
+@app.get("/ping")
+async def healtchcheck():
+    return {"status": "ok"}
+
+@app.post("/invocations", response_model=OutputResponse)
+async def retrict_to_topic_sagemaker(input_request: InputRequest):
+    return await restrict_to_topic(input_request)
+
 
 # Run the app with uvicorn
 # Save this script as app.py and run with: uvicorn app:app --reload

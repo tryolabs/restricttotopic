@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+
+import multiprocessing
+import os
+import signal
+import subprocess
+import sys
+import math
+
+import torch
+from huggingface_hub import snapshot_download
+
+cpu_count = multiprocessing.cpu_count()
+default_worker_count = max(cpu_count // 8,1)
+
+model_server_timeout = os.environ.get('MODEL_SERVER_TIMEOUT', '60')
+model_server_workers = int(os.environ.get('MODEL_SERVER_WORKERS', default_worker_count))
+model_save_directory = os.environ.get('MODEL_SAVE_DIRECTORY', '/opt/ml/model')
+
+MODEL_NAME = "facebook/bart-large-mnli"
+DEFAULT_REVISION = "d7645e127eaf1aefc7862fd59a17a5aa8558b8ce"
+
+print(f'Model server workers: {model_server_workers}')
+print(f'Model save directory: {model_save_directory}')
+print(f'Model server timeout: {model_server_timeout}')
+
+print(f'CPU count: {cpu_count}')
+
+def sigterm_handler(gunicorn_pid):
+    try:
+        os.kill(gunicorn_pid, signal.SIGTERM)
+    except OSError:
+        pass
+    sys.exit(0)
+
+def load_and_save_model():
+    try:
+        
+        print('Loading the model...')
+        # Ensure the save directory exists
+        if not os.path.exists(model_save_directory):
+            os.makedirs(model_save_directory)
+
+            print("Downloading the model...")
+
+            snapshot_download(
+                MODEL_NAME,
+                local_dir=model_save_directory,
+                ignore_patterns=[
+                    "*.pt",
+                    "*.bin",
+                    "*.pth",
+                    "original/*",
+                ],  # Ensure safetensors
+                revision=DEFAULT_REVISION,
+                force_download=False,
+            )
+        else:
+            print("Model already downloaded.")
+    
+        print('Model loaded and saved successfully.')
+    except Exception as e:
+        print(f'Error loading and saving the model: {e}')
+        sys.exit(1)
+
+def start_server():
+    print(f'Starting the inference server with {model_server_workers} workers.')
+    
+    load_and_save_model()
+
+    try:
+        # Start Gunicorn to serve the FastAPI app
+        gunicorn = subprocess.Popen(['gunicorn',
+                                     '--timeout', str(model_server_timeout),
+                                     '-k', 'uvicorn.workers.UvicornWorker',
+                                     '-b', '0.0.0.0:8080',
+                                     '-w', str(model_server_workers),
+                                     'app:app'])
+
+        signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(gunicorn.pid))
+
+        # Wait for the Gunicorn process to exit
+        gunicorn.wait()
+
+    except Exception as e:
+        print(f'Error starting the inference server: {e}')
+        sys.exit(1)
+
+    print('Inference server exiting')
+
+if __name__ == '__main__':
+    start_server()
