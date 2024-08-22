@@ -1,5 +1,3 @@
-
-
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Union
@@ -32,7 +30,7 @@ class OutputResponse(BaseModel):
     outputs: List[InferenceData]
 
 @app.post("/validate", response_model=OutputResponse)
-async def restrict_to_topic(input_request: InputRequest):
+def restrict_to_topic(input_request: InputRequest):
     print('make request')
     text = None
     candidate_topics = None
@@ -51,6 +49,7 @@ async def restrict_to_topic(input_request: InputRequest):
     
     # Perform zero-shot classification
     result = classifier(text, candidate_topics)
+    print("result: ", result)
     topics = result["labels"]
     scores = result["scores"]
     found_topics = [topic for topic, score in zip(topics, scores) if score > zero_shot_threshold]
@@ -71,7 +70,6 @@ async def restrict_to_topic(input_request: InputRequest):
         ]
     )
     
-    print(f"Output data: {output_data}")
     return output_data
 
 # Run the app with uvicorn
