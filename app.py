@@ -3,14 +3,18 @@ from pydantic import BaseModel
 from typing import List, Union
 from transformers import pipeline
 import torch
+import os
 
 app = FastAPI()
+
+env = os.environ.get("env", "dev")
+torch_device = "cuda" if env == "prod" else "cpu"
 
 # Initialize the zero-shot classification pipeline
 classifier = pipeline(
     "zero-shot-classification",
     model="facebook/bart-large-mnli",
-    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    device=torch.device(torch_device),
     hypothesis_template="This example has to do with topic {}.",
     multi_label=True,
 )
@@ -22,7 +26,9 @@ class InferenceData(BaseModel):
     datatype: str
 
 class InputRequest(BaseModel):
-    inputs: List[InferenceData]
+    text: str
+    candidate_topics: List[str]
+    zero_shot_threshold: float = 0.5
 
 class OutputResponse(BaseModel):
     modelname: str
@@ -32,17 +38,11 @@ class OutputResponse(BaseModel):
 @app.post("/validate", response_model=OutputResponse)
 def restrict_to_topic(input_request: InputRequest):
     print('make request')
-    text = None
-    candidate_topics = None
-    zero_shot_threshold = 0.5
     
-    for inp in input_request.inputs:
-        if inp.name == "text":
-            text = inp.data[0]
-        elif inp.name == "candidate_topics":
-            candidate_topics = inp.data
-        elif inp.name == "zero_shot_threshold":
-            zero_shot_threshold = float(inp.data[0])
+    text = input_request.text
+    candidate_topics = input_request.candidate_topics
+    zero_shot_threshold = input_request.zero_shot_threshold
+    
     
     if text is None or candidate_topics is None:
         raise HTTPException(status_code=400, detail="Invalid input format")
