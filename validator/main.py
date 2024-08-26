@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from dotenv import load_dotenv
 from guardrails.validator_base import (
+    ErrorSpan,
     FailResult,
     PassResult,
     ValidationResult,
@@ -332,14 +333,31 @@ class RestrictToTopic(Validator):
             elif topic in self._invalid_topics:
                 invalid_topics_found.append(topic)
 
+        error_spans = []
+        
         # Require at least one valid topic and no invalid topics
         if invalid_topics_found:
+            for topic in invalid_topics_found:
+                error_spans.append(
+                    ErrorSpan(
+                        start=value.find(topic),
+                        end=value.find(topic) + len(topic),
+                        reason=f"Text contains invalid topic: {topic}",
+                    )
+                )
             return FailResult(
-                error_message=f"Invalid topics found: {invalid_topics_found}"
+                error_message=f"Invalid topics found: {invalid_topics_found}",
+                error_spans=error_spans
             )
         if not valid_topics_found:
-            return FailResult(error_message="No valid topic was found.")
-
+            return FailResult(
+                error_message="No valid topic was found.",
+                error_spans=[ErrorSpan(
+                    start=0,
+                    end=len(value),
+                    reason="No valid topic was found."
+                )]
+            )
         return PassResult()
     
     def _inference_local(self, model_input: Any) -> Any:
