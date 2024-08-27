@@ -80,6 +80,10 @@ class RestrictToTopic:
             pred_labels = [
                 label for label, score in zip(results["labels"], results["scores"]) if score > threshold
             ]
+
+            if not pred_labels:
+                pred_labels = ["No valid topic found."]
+
             outputs.append(
                 InferenceData(
                     name=f"result{idx}",
