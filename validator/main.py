@@ -1,6 +1,5 @@
-import contextvars
-import json
 import os
+import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from dotenv import load_dotenv
@@ -12,6 +11,7 @@ from guardrails.validator_base import (
     Validator,
     register_validator,
 )
+from guardrails.stores.context import get_call_kwarg
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from transformers import pipeline
@@ -179,7 +179,7 @@ class RestrictToTopic(Validator):
                 found_topics.append(llm_topic)
         return found_topics
 
-    def get_client_args(self) -> str:
+    def get_client_args(self) -> Tuple[Optional[str], Optional[str]]:
         """Returns neccessary data for api calls.
 
         Returns:
@@ -187,18 +187,11 @@ class RestrictToTopic(Validator):
         """
 
         load_dotenv()
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            kwargs = {}
-            context_copy = contextvars.copy_context()
-            for key, context_var in context_copy.items():
-                if key.name == "kwargs" and isinstance(kwargs, dict):
-                    kwargs = context_var
-                    break
+            
+        api_key = get_call_kwarg("api_key") or os.environ.get("OPENAI_API_KEY")
+        api_base = get_call_kwarg("api_base") or os.environ.get("OPENAI_API_BASE")
 
-            api_key = kwargs.get("api_key")
-
-        return api_key
+        return (api_key, api_base)
 
     @retry(
         wait=wait_random_exponential(min=1, max=60),
@@ -237,8 +230,8 @@ class RestrictToTopic(Validator):
                 )
 
             def openai_callable(text: str, topics: List[str]) -> str:
-                api_key = self.get_client_args()
-                client = OpenAI(api_key=api_key)
+                api_key, api_base = self.get_client_args()
+                client = OpenAI(api_key=api_key, base_url=api_base)
                 response = client.chat.completions.create(
                     model=llm_callable,
                     response_format={"type": "json_object"},
