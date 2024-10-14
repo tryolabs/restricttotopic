@@ -280,7 +280,8 @@ class RestrictToTopic(Validator):
 
         Args:
             value (str): The given string to classify
-            metadata (Optional[Dict[str, Any]], optional): _description_. Defaults to {}.
+            metadata (Optional[Dict[str, Any]], optional): Dictionary containing valid and invalid topics. Defaults to {}.
+
 
         Raises:
             ValueError: If a topic is invalid and valid
@@ -291,9 +292,9 @@ class RestrictToTopic(Validator):
             ValidationResult: PassResult if a topic is restricted and valid,
             FailResult otherwise
         """
-        valid_topics = set(self._valid_topics)
-        invalid_topics = set(self._invalid_topics)
-        all_topics = list(set(valid_topics) | set(invalid_topics))
+        valid_topics = set(metadata.get('valid_topics', self._valid_topics))
+        invalid_topics = set(metadata.get('invalid_topics', self._invalid_topics))
+        all_topics = list(valid_topics | invalid_topics)
 
         # throw if valid and invalid topics are empty
         if not valid_topics:
@@ -308,8 +309,8 @@ class RestrictToTopic(Validator):
 
         model_input = {
             "text": value,
-            "valid_topics": self._valid_topics,
-            "invalid_topics": self._invalid_topics
+            "valid_topics": valid_topics,
+            "invalid_topics": invalid_topics
         }
         
         # Ensemble method
