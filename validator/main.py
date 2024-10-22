@@ -382,7 +382,7 @@ class RestrictToTopic(Validator):
                 {
                     "name": "candidate_topics",
                     "shape": [len(model_input["valid_topics"]) + len(model_input["invalid_topics"])],
-                    "data": model_input["valid_topics"] + model_input["invalid_topics"],
+                    "data": list(model_input["valid_topics"]) + list(model_input["invalid_topics"]),
                     "datatype": "BYTES"
                 },
                 {
