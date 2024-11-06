@@ -322,9 +322,9 @@ class RestrictToTopic(Validator):
         invalid_topics_found = []
         valid_topics_found = []
         for topic in found_topics:
-            if topic in self._valid_topics:
+            if topic in valid_topics:
                 valid_topics_found.append(topic)
-            elif topic in self._invalid_topics:
+            elif topic in invalid_topics:
                 invalid_topics_found.append(topic)
 
         error_spans = []
