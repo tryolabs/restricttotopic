@@ -362,7 +362,22 @@ class RestrictToTopic(Validator):
     def _inference_local(self, model_input: Any) -> Any:
         """Local inference method for the restrict-to-topic validator."""
         text = model_input["text"]
-        candidate_topics = list(model_input["valid_topics"]) + list(model_input["invalid_topics"])
+
+        valid_topics = model_input["valid_topics"]
+        invalid_topics = model_input["invalid_topics"]
+
+        # There's a chance that valid topics will be passed as a plain string or a set.
+        # If that happens the '+ action might fail and the call to _classifier will
+        # not behave as expected.
+        if isinstance(valid_topics, str):
+            valid_topics = [valid_topics, ]
+        elif isinstance(valid_topics, set):
+            valid_topics = list(valid_topics)
+        if isinstance(invalid_topics, str):
+            invalid_topics = [invalid_topics, ]
+        elif isinstance(invalid_topics, set):
+            invalid_topics = list(invalid_topics)
+        candidate_topics = valid_topics + invalid_topics
 
         result = self._classifier(text, candidate_topics)
         topics = result["labels"]
