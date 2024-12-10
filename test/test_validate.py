@@ -27,3 +27,18 @@ def test_valid_and_invalid_topics():
     )
     assert isinstance(v.validate("I enjoy eating fish."), PassResult)
     assert isinstance(v.validate("I went to Japan and had sushi."), FailResult)
+
+
+def test_metadata_override():
+    v = RestrictToTopic(
+        valid_topics=["food",],
+        on_fail="noop",
+    )
+    assert isinstance(v.validate("I went to Japan and had sushi."), PassResult)
+    assert isinstance(
+        v.validate(
+            "I went to Japan and had sushi.",
+            metadata={"invalid_topics": ["travel",]}
+        ),
+        FailResult
+    )
