@@ -78,8 +78,8 @@ class RestrictToTopic(Validator):
 
     def __init__(
         self,
-        valid_topics: List[str],
-        invalid_topics: Optional[List[str]] = [],
+        valid_topics: Optional[List[str]] = None,
+        invalid_topics: Optional[List[str]] = None,
         device: Optional[Union[str, int]] = -1,
         model: Optional[str] = "facebook/bart-large-mnli",
         llm_callable: Union[str, Callable, None] = None,
@@ -105,11 +105,17 @@ class RestrictToTopic(Validator):
             llm_threshold=llm_threshold,
             **kwargs,
         )
-        self._valid_topics = valid_topics
+        if valid_topics is None:
+            self._valid_topics = []
+        else:
+            self._valid_topics = valid_topics
         if invalid_topics is None:
             self._invalid_topics = []
         else:
             self._invalid_topics = invalid_topics
+
+        if not (self._valid_topics or self._invalid_topics):
+            raise ValueError("Either valid topics or invalid topics must be specified.")
 
         self._device = (
             str(device).lower()
@@ -289,14 +295,13 @@ class RestrictToTopic(Validator):
         invalid_topics = set(metadata.get('invalid_topics', self._invalid_topics))
         all_topics = list(valid_topics | invalid_topics)
 
-        # throw if valid and invalid topics are empty
-        if not valid_topics:
+        # If there aren't any valid or invalid topics...
+        if len(all_topics) == 0:
             raise ValueError(
-                "`valid_topics` must be set and contain at least one topic."
+                "There must be at least one valid or invalid topic."
             )
-
         
-        # throw if valid and invalid topics are not disjoint
+        # Throw if valid and invalid topics are not disjoint:
         if bool(valid_topics.intersection(invalid_topics)):
             raise ValueError("A topic cannot be valid and invalid at the same time.")
 
@@ -329,7 +334,7 @@ class RestrictToTopic(Validator):
 
         error_spans = []
         
-        # Require at least one valid topic and no invalid topics
+        # Require no invalid topics and, if present, at least one valid topic.
         if invalid_topics_found:
             for topic in invalid_topics_found:
                 error_spans.append(
@@ -343,7 +348,7 @@ class RestrictToTopic(Validator):
                 error_message=f"Invalid topics found: {invalid_topics_found}",
                 error_spans=error_spans
             )
-        if not valid_topics_found:
+        if len(valid_topics) > 0 and not valid_topics_found:
             return FailResult(
                 error_message="No valid topic was found.",
                 error_spans=[ErrorSpan(
